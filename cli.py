@@ -220,6 +220,9 @@ async def hunt(app, spec=None, n=None, min_score=None, recheck=False, verify=Fal
     app.ck.fast = s_["fast_check"]
     skipped = Counter()
     cur = {"spec": spec, "min": min_score, "desc": "", "gen": None, "since_free": 0, "s": dict(s_)}
+    # Preflight can call ask_user before the checking loop starts.
+    # Keep found initialized for both pause UI and Telegram notifications.
+    found = []
     tried = []
     queue = [spec]
 
@@ -376,7 +379,7 @@ async def hunt(app, spec=None, n=None, min_score=None, recheck=False, verify=Fal
             return
     STAG = max(150, n * 3)      # столько проверок без находок → пробуем похожий пресет
     rdays = s_["recheck_days"]
-    found, other, stats = [], [], Counter()
+    other, stats = [], Counter()
     t0 = time.time()
     done = False
     watch_new = [0]
