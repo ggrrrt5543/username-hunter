@@ -1,4 +1,6 @@
 import io
+import os
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -33,6 +35,32 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn('cli.py',entries)
             self.assertNotIn('.env',entries)
             self.assertNotIn('data/settings.json',entries)
+
+    def test_zip_windows_launchers_are_ascii_crlf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact = build(output=tmp)
+            with zipfile.ZipFile(artifact) as archive:
+                for name in ['run.bat', 'update.bat']:
+                    content = archive.read('username_hunter/' + name)
+                    self.assertTrue(content.isascii(), name)
+                    self.assertNotIn(b'\n', content.replace(b'\r\n', b''), name)
+                    self.assertNotIn(b'\r', content.replace(b'\r\n', b''), name)
+                    self.assertTrue(content.startswith(b'@echo off\r\n'))
+                    self.assertNotIn(b') else (', content)
+
+    @unittest.skipUnless(os.name == 'nt', 'Requires actual Windows CMD')
+    def test_cmd_executes_both_launchers(self):
+        with tempfile.TemporaryDirectory(prefix='hunter batch ') as tmp:
+            root = Path(tmp)
+            for name, entry in [('run.bat', 'bootstrap.py'), ('update.bat', 'updater.py')]:
+                (root / name).write_bytes((ROOT / name).read_bytes())
+                (root / entry).write_text("import sys; print('BATCH_LAUNCH_OK ' + ' '.join(sys.argv[1:]))\n")
+                result = subprocess.run(['cmd.exe', '/d', '/c', name + ' --version'],
+                    cwd=root, input='\n', capture_output=True, text=True,
+                    encoding='utf-8', errors='replace', timeout=60)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn('BATCH_LAUNCH_OK --version', result.stdout)
+                self.assertNotIn('not recognized', result.stdout + result.stderr)
 
     def test_archive_rejects_traversal(self):
         stream=io.BytesIO()

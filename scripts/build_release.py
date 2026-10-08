@@ -25,7 +25,12 @@ def build(root=ROOT, output=None):
             info = zipfile.ZipInfo('username_hunter/' + rel, (2026,1,1,0,0,0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = (0o100755 if rel.endswith('.sh') else 0o100644) << 16
-            z.writestr(info, p.read_bytes())
+            content = p.read_bytes()
+            if rel.endswith('.bat'):
+                # CMD requires Windows line endings; keep launchers ASCII-only.
+                text = content.decode('ascii').replace('\r\n', '\n').replace('\r', '\n')
+                content = text.replace('\n', '\r\n').encode('ascii')
+            z.writestr(info, content)
     digest = hashlib.sha256((out / name).read_bytes()).hexdigest()
     shutil.copy2(out / name, out / 'username_hunter.zip')
     (out / 'SHA256SUMS.txt').write_text(f'{digest}  {name}\n{digest}  username_hunter.zip\n', encoding='ascii')

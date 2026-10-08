@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.4.1 — Windows launcher hotfix
+
+- Windows-запускатели используют CRLF и ASCII, без кириллицы и многострочных блоков `if/else`.
+- ZIP-сборка принудительно нормализует `.bat` в CRLF; `.gitattributes` сохраняет правильные переносы при checkout.
+- Добавлены проверки содержимого запускателей и реального исполнения через CMD в Windows CI.
+
 ## 8.4.0 — GitHub Edition
 
 - GitHub Releases: готовый ZIP, SHA256SUMS и автоматическая публикация новой версии.
