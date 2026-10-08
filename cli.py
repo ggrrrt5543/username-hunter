@@ -8,6 +8,8 @@
   python cli.py db --export free.csv
 """
 import argparse, asyncio, os, sys, time
+from bootstrap import configure_stdio
+configure_stdio()
 from collections import Counter
 from dotenv import load_dotenv
 from rich.console import Console, Group

@@ -1,5 +1,7 @@
 """Local diagnostics. Does not print credentials, phone numbers or session names."""
 import argparse
+from bootstrap import configure_stdio
+configure_stdio()
 import importlib.util
 from pathlib import Path
 import platform

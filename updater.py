@@ -1,5 +1,7 @@
 """Explicit, checksum-verified updates. Never replaces user data or .env."""
 import argparse
+from bootstrap import configure_stdio
+configure_stdio()
 import hashlib
 import io
 import json

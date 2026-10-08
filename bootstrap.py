@@ -6,6 +6,15 @@ import subprocess
 import sys
 import venv
 
+def configure_stdio():
+    # Windows redirected output can default to cp1252, which cannot print Cyrillic.
+    if os.name == 'nt':
+        for stream in (sys.stdout, sys.stderr):
+            if hasattr(stream, 'reconfigure'):
+                stream.reconfigure(encoding='utf-8', errors='replace')
+
+configure_stdio()
+
 ROOT = Path(__file__).resolve().parent
 
 def main():

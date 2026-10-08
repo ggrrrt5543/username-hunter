@@ -1,6 +1,8 @@
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch, Mock
+import bootstrap
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from scorer import rate, level, EN, RU
@@ -8,6 +10,13 @@ from db import DB
 import tempfile
 
 class CoreTests(unittest.TestCase):
+    def test_windows_stdio_utf8(self):
+        output, errors = Mock(), Mock()
+        with patch.object(bootstrap.os, 'name', 'nt'), patch.object(bootstrap.sys, 'stdout', output), patch.object(bootstrap.sys, 'stderr', errors):
+            bootstrap.configure_stdio()
+        output.reconfigure.assert_called_with(encoding='utf-8', errors='replace')
+        errors.reconfigure.assert_called_with(encoding='utf-8', errors='replace')
+
     def test_scores_are_bounded(self):
         for name in ['hello','@telegram','abcde','crypto','zzzzz','ton777','goldfox','a'*32]:
             result=rate(name)
