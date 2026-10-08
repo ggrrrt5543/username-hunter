@@ -24,7 +24,7 @@ from rich import box
 from fragment import Fragment
 from market import Market
 from scorer import rate, level, level_min, LEVELS
-from generator import candidates, PRESETS
+from generator import candidates, PRESETS, canonical_preset
 from checker import Checker, LABEL, FREE, MAYBE, INVALID, TAKEN, FRAG_SALE, FRAG_AVAIL, FRAG_SOLD, ERROR
 from db import DB
 import settings as cfg
@@ -39,6 +39,7 @@ logging.basicConfig(filename=os.path.join(os.path.dirname(os.path.abspath(__file
                     level=logging.WARNING, format="%(asctime)s %(name)s: %(message)s", force=True)   # не мусорим в экран
 logging.getLogger("telethon").setLevel(logging.ERROR)
 con = Console()
+GENERATION_SLICE_SECONDS = 0.25
 SET = cfg.load()
 _c = SET.get("concurrency", "auto")
 CONC = "auto" if str(_c).lower() in ("auto", "0", "") else int(_c)
@@ -181,6 +182,10 @@ async def hunt(app, spec=None, n=None, min_score=None, recheck=False, verify=Fal
     if s_["max_score"] < s_["min_score"]:
         s_["max_score"] = 100
     spec = spec or s_["preset"]
+    normalized = canonical_preset(spec)
+    if normalized != spec:
+        con.print(f"[dim]Пресет {spec} → {normalized}[/]")
+        spec = normalized
     n = n or s_["target"]
     if min_score is not None:
         s_["min_score"] = min_score
@@ -223,23 +228,35 @@ async def hunt(app, spec=None, n=None, min_score=None, recheck=False, verify=Fal
     # Preflight can call ask_user before the checking loop starts.
     # Keep found initialized for both pause UI and Telegram notifications.
     found = []
+    raw_stats = Counter()
     tried = []
     queue = [spec]
+
+    def remember(sp):
+        if sp not in tried:
+            tried.append(sp)
 
     def next_specs(sp):
         if sp.startswith("like:"):
             return ["combo", "mix"]
         return SIMILAR.get(sp, ["mix"])
 
-    def prepare(sp, interactive, want=None):
+    async def prepare(sp, interactive, want=None):
         """Готовит генератор под пресет: подгоняет длину и порог. None — если пресет не подходит."""
         loc = dict(s_)
         if want is None:
             want = min_score
         else:                                           # уровень выбран вручную
             loc["min_score"], loc["min_level"] = want, "F"
-        sample = list(_it.islice(candidates(sp, 0, prefix=loc["starts"], suffix=loc["ends"],
-                                            lengths=(loc["len_min"], loc["len_max"])), 3000))
+        sample = []
+        for name in candidates(sp, 0, prefix=loc["starts"], suffix=loc["ends"],
+                               lengths=(loc["len_min"], loc["len_max"]), cooperative=True):
+            if name is None:
+                await asyncio.sleep(0)
+                continue
+            sample.append(name)
+            if len(sample) >= 3000:
+                break
         if not sample:
             return None
         lens = sorted({len(u) for u in sample})
@@ -268,11 +285,16 @@ async def hunt(app, spec=None, n=None, min_score=None, recheck=False, verify=Fal
         def gen():
             miss = 0
             for u in candidates(sp, want, prefix=loc["starts"], suffix=loc["ends"],
-                                lengths=(loc["len_min"], loc["len_max"])):
+                                lengths=(loc["len_min"], loc["len_max"]), cooperative=True, metrics=raw_stats):
+                if u is None:
+                    yield None
+                    continue
                 ok = cfg.name_ok(u, loc) and cfg.value_ok(rate(u), mk.estimate(u)["mid"], loc)
                 if not ok:
                     skipped["x"] += 1
                     miss += 1
+                    if miss % 128 == 0:
+                        yield None
                     if miss > 60000:
                         return
                     continue
@@ -326,7 +348,7 @@ async def hunt(app, spec=None, n=None, min_score=None, recheck=False, verify=Fal
             live.start()
         return ch, nxt, low
 
-    def switch(reason, stag=False):
+    async def switch(reason, stag=False):
         """Переход на похожий пресет / уровень ниже. False — остановиться."""
         if not auto:
             log.append(reason + " — смена пресета выключена")
@@ -347,34 +369,39 @@ async def hunt(app, spec=None, n=None, min_score=None, recheck=False, verify=Fal
                 want = low[0] if ch in "23" else cur["min"]
                 old = (cur["spec"], cur["min"])
                 if ch in "13":
-                    tried.append(cur["spec"])
-                if prepare(sp, False, want):
+                    remember(cur["spec"])
+                if await prepare(sp, False, want):
                     log.append(f"✋ «{old[0]}» {old[1]}+ → «{sp}» {cur['min']}+")
                     return True
-                tried.append(sp)
+                # Keep the explicit choice even when its filters still produce no candidates.
+                cur.update(spec=sp, min=want, gen=None,
+                           desc=PRESETS.get(sp, (f"шаблон {sp}",))[0], since_free=0)
+                cur["s"] = dict(cur["s"], min_score=want, min_level="F")
+                stag = False  # No valid generator remains to "continue as is".
+                remember(sp)
                 reason = f"«{sp}» не подходит под фильтры"
         if cur["spec"] == "all":
             log.append(reason)
             return False
-        tried.append(cur["spec"])
+        remember(cur["spec"])
         for sp in next_specs(cur["spec"]) + ["mix"]:
             if sp in tried:
                 continue
             old = cur["spec"]
-            if prepare(sp, False):
+            if await prepare(sp, False):
                 log.append(f"🔄 {reason}: «{old}» → «{sp}»")
                 return True
-            tried.append(sp)
+            remember(sp)
         log.append("все похожие пресеты перепробованы")
         return False
 
     con.print("[dim]Проверяю настройки…[/]")       # без спиннера — иначе он закрывает вопрос
-    ok = prepare(spec, True)
+    ok = await prepare(spec, True)
     if not ok:
         if not auto:
             con.print("[red]Ни один вариант не проходит фильтры. Проверь настройки.[/]")
             return
-        if not switch("пресет не подходит"):
+        if not await switch("пресет не подходит"):
             con.print("[red]Ничего не подходит под фильтры (длина/цифры/начало/буквы). Проверь настройки.[/]")
             return
     STAG = max(150, n * 3)      # столько проверок без находок → пробуем похожий пресет
@@ -385,6 +412,7 @@ async def hunt(app, spec=None, n=None, min_score=None, recheck=False, verify=Fal
     watch_new = [0]
     maybe_set = set()
     notified = [0]
+    G.CURRENT[0] = None  # Preflight sampling must not look like active enumeration.
 
     def render():
         el = time.time() - t0
@@ -424,37 +452,62 @@ async def hunt(app, spec=None, n=None, min_score=None, recheck=False, verify=Fal
         if pk and pk in G.PROGRESS:
             d, tot = G.PROGRESS[pk]
             prog = f"перебор {d / tot * 100:.2f}% из {tot:,} · ".replace(",", " ")
-        foot = Text(prog + f"уровни найденных: {lv or '—'} · отсеяно фильтрами: {sum(skipped.values())} · "
-                    + (f"👁 в слежку +{watch_new[0]} · " if watch_new[0] else "") + " · ".join(log[-5:]),
-                    style="dim", overflow="ellipsis", no_wrap=True)
+        foot = Text(
+            f"состояние: {cur.get('phase', 'подготовка')} · " + prog.rstrip(' ·') + "\n"
+            + f"оценено кандидатов: {raw_stats['total']} · отсев по скору: {raw_stats['low_score']} · "
+            + f"фильтры: {skipped['x']} · уже в кэше базы: {skipped['cache']}\n"
+            + f"уровни найденных: {lv or '—'} · "
+            + (f"👁 в слежку +{watch_new[0]} · " if watch_new[0] else "") + " · ".join(log[-5:]),
+            style="dim", overflow="ellipsis", no_wrap=True)
         parts = [head, t] + ([f] if s_["show_fragment"] else []) + [foot]
         return Panel(Group(*parts), title=f"[bold]Охота: {cur['spec']}[/] — {cur['desc']}, скор ≥ {cur['min']}"
                      + (f" [dim](пробовал: {', '.join(tried)})[/]" if tried else ""),
                      subtitle="[dim]Ctrl+C — остановить[/]", border_style="cyan")
 
     try:
-        with Live(render(), console=con, refresh_per_second=4, transient=False) as live:
+        with Live(render(), console=con, refresh_per_second=4, transient=False, get_renderable=render) as live:
             cur["live"] = live
             while not done:
                 if cur["since_free"] >= STAG:
-                    if switch(f"{cur['since_free']} проверок без находок", stag=True):
+                    if await switch(f"{cur['since_free']} проверок без находок", stag=True):
                         live.update(render())
                         continue
                     if ask_mode and auto:
                         break                               # выбрал «остановить»
                     cur["since_free"] = 0
                 batch = []
+                batch_started = time.monotonic()
+                cur["phase"] = "отбор кандидатов"
                 for u in cur["gen"]:
+                    if u is None:
+                        await asyncio.sleep(0)
+                        if batch and time.monotonic() - batch_started >= GENERATION_SLICE_SECONDS:
+                            break
+                        continue
                     if recheck or rdays == 0 or not app.db.recent(u, rdays):
                         batch.append(u)
-                    if len(batch) >= max(16, int(app.ck.sem.limit) * 4):
+                    else:
+                        skipped["cache"] += 1
+                    if (len(batch) >= max(16, int(app.ck.sem.limit) * 4)
+                            or (batch and time.monotonic() - batch_started >= GENERATION_SLICE_SECONDS)):
                         break
                 if not batch:
-                    if switch(f"«{cur['spec']}» кончился"):
+                    details = []
+                    if raw_stats['low_score']:
+                        details.append(f"по скору отсеяно {raw_stats['low_score']}")
+                    if skipped['x']:
+                        details.append(f"по фильтрам {skipped['x']}")
+                    if skipped['cache']:
+                        details.append(f"уже проверено в базе {skipped['cache']}")
+                    reason = f"«{cur['spec']}»: новых кандидатов нет"
+                    if details:
+                        reason += " · " + "; ".join(details)
+                    if await switch(reason):
                         live.update(render())
                         continue
                     log.append("кандидаты закончились" + (f" (уже проверенные пропускаются {rdays} дн.)" if rdays else ""))
                     break
+                cur["phase"] = f"ожидание ответов сайтов / API ({len(batch)} юзов)"
                 for coro in asyncio.as_completed([app.ck.check(u) for u in batch]):
                     name, st, info = await coro
                     stats[st] += 1

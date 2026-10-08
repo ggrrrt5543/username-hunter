@@ -66,7 +66,28 @@ def reset_progress():
         os.remove(PROG_PATH)
 
 
-def _full(groups, key, min_score, filt=None, chunk=20000):
+def canonical_preset(spec):
+    """Accept common reversed spellings without changing custom templates."""
+    return {'p5':'5p', 'p6':'6p', 'p7':'7p', 'd5':'5d', 'd6':'6d'}.get(spec.lower(), spec)
+
+
+def _ranked(names, cooperative=False, min_score=0, metrics=None):
+    """Return scored names, optionally yielding None as a scheduling checkpoint."""
+    scored = []
+    for index, name in enumerate(names, 1):
+        score = rate(name).score
+        scored.append((score, name))
+        if metrics is not None:
+            metrics['total'] = metrics.get('total', 0) + 1
+            if score < min_score:
+                metrics['low_score'] = metrics.get('low_score', 0) + 1
+        if cooperative and index % 256 == 0:
+            yield None
+    scored.sort(reverse=True)
+    return scored
+
+
+def _full(groups, key, min_score, filt=None, chunk=20000, cooperative=False, metrics=None):
     """Полный перебор без повторов. groups — список вариантов, каждый — список «позиций» (наборов строк).
     Порядок перемешан (i*P mod N), так что каждый кусок — из всего пространства; лучшие в куске — первыми.
     Прогресс сохраняется: следующий запуск продолжит, где остановился."""
@@ -83,6 +104,8 @@ def _full(groups, key, min_score, filt=None, chunk=20000):
     PROGRESS[key] = [start, N]
     i = start
     while i < N:
+        if cooperative:
+            yield None
         CURRENT[0] = key
         names = set()
         for j in range(i, min(N, i + chunk)):
@@ -98,7 +121,11 @@ def _full(groups, key, min_score, filt=None, chunk=20000):
             u = "".join(reversed(parts))
             if valid(u) and (filt is None or filt(u)):
                 names.add(u)
-        scored = sorted(((rate(u).score, u) for u in names), reverse=True)
+            if cooperative and (j - i) % 512 == 511:
+                PROGRESS[key][0] = j + 1  # Live view; disk checkpoint waits for the whole chunk.
+                yield None
+        PROGRESS[key][0] = min(N, i + chunk)
+        scored = yield from _ranked(names, cooperative, min_score, metrics)
         for sc, u in scored:
             if sc < min_score:
                 break
@@ -194,51 +221,60 @@ def mutations(word):
     return out
 
 
-def candidates(spec, min_score=0, rng=random, prefix="", suffix="", lengths=(5, 12)):
-    """Бесконечный/конечный генератор юзов, лучшие — первыми (по батчам)."""
+def candidates(spec, min_score=0, rng=random, prefix="", suffix="", lengths=(5, 12), cooperative=False, metrics=None):
+    """Names only by default. cooperative=True also yields None checkpoints."""
+    spec = canonical_preset(spec)
     lo, hi = lengths
     if spec.startswith("like:"):
-        names = sorted((x for x in mutations(spec[5:].strip()) if valid(x)), key=lambda w: -rate(w).score)
-        yield from (w for w in names if rate(w).score >= min_score)
+        scored = yield from _ranked((x for x in mutations(spec[5:].strip()) if valid(x)), cooperative, min_score, metrics)
+        yield from (w for sc, w in scored if sc >= min_score)
         return
-    if spec in EXTERNAL:                              # собранное парсером
-        names = sorted({x for x in EXTERNAL[spec] if valid(x)}, key=lambda w: -rate(w).score)
-        yield from (w for w in names if rate(w).score >= min_score)
+    if spec in EXTERNAL:
+        scored = yield from _ranked({x for x in EXTERNAL[spec] if valid(x)}, cooperative, min_score, metrics)
+        yield from (w for sc, w in scored if sc >= min_score)
         return
     if spec == "all":
-        for s in ALL_CHAIN:
-            yield from candidates(s, min_score, rng, prefix, suffix, lengths)
+        for child in ALL_CHAIN:
+            yield from candidates(child, min_score, rng, prefix, suffix, lengths, cooperative=cooperative, metrics=metrics)
         return
     if spec == "pair":
         from scorer import PREMIUM
         short = list(dict.fromkeys([w for w in list(EN)[:6000] if 2 <= len(w) <= 5] + [p for p in PREMIUM if 2 <= len(p) <= 5]))
         yield from _full([[short, short]], f"pair|{prefix}|{suffix}|{lo}-{hi}", min_score,
-                         lambda u: lo <= len(u) <= hi and u.startswith(prefix) and u.endswith(suffix))
+                         lambda u: lo <= len(u) <= hi and u.startswith(prefix) and u.endswith(suffix),
+                         cooperative=cooperative, metrics=metrics)
         return
     if spec in ("b5", "b6", "b7") or spec == "brand":
         n = int(spec[1]) if spec != "brand" else None
+        if n is None and lo > min(hi, 8):
+            return
         seen = set()
         empty_b = 0
         while True:
+            if cooperative:
+                yield None
             batch = set()
-            for _ in range(3000):
+            for index in range(3000):
+                if cooperative and index % 128 == 127:
+                    yield None
                 u = markov(n or rng.randint(lo, min(hi, 8)), rng)
                 if u and u not in seen and u not in EN and u not in RU and valid(prefix + u + suffix):
                     batch.add(prefix + u + suffix)
             if not batch:
                 return
             seen |= batch
+            scored = yield from _ranked(batch, cooperative, min_score, metrics)
             got = False
-            for w in sorted(batch, key=lambda w: -rate(w).score)[:500]:
-                if rate(w).score >= min_score:
+            for sc, w in scored[:500]:
+                if sc >= min_score:
                     got = True
                     yield w
             empty_b = 0 if got else empty_b + 1
             if empty_b > 30:
                 return
     if spec == "dict":
-        words = sorted((w for w in set(EN) | set(RU) if lo <= len(w) <= hi and valid(w)), key=lambda w: -rate(w).score)
-        yield from (w for w in words if rate(w).score >= min_score)
+        scored = yield from _ranked((w for w in set(EN) | set(RU) if lo <= len(w) <= hi and valid(w)), cooperative, min_score, metrics)
+        yield from (w for sc, w in scored if sc >= min_score)
         return
     if spec == "niche":
         from scorer import PREMIUM
@@ -246,66 +282,86 @@ def candidates(spec, min_score=0, rng=random, prefix="", suffix="", lengths=(5, 
         digs = ["1", "7", "24", "77", "777", "99", "999", "100", "365", "01", "007", "2026", "888", "69", "420", "11", "22", "00"]
         ends = SUFFIXES + ["s", "y", "ly", "hub", "pay", "now", "zone", "land", "club", "team", "shop", "news", "bot", "app", "ai"]
         names = set()
-        for p in prem:
-            names |= {p + s for s in ends} | {x + p for x in PREFIXES + ["x", "mr", "real", "im", "we", "top", "best"]}
-            names |= {p + d for d in digs}
-            names |= {p + q for q in prem if p != q}
-            names |= {m for m in mutations(p) if len(m) >= 5}
-        names = sorted((x for x in names if lo <= len(x) <= hi and valid(x)), key=lambda w: -rate(w).score)
-        yield from (w for w in names if rate(w).score >= min_score)
+        for index, word in enumerate(prem):
+            if cooperative and index % 16 == 15:
+                yield None
+            names |= {word + tail for tail in ends} | {head + word for head in PREFIXES + ["x", "mr", "real", "im", "we", "top", "best"]}
+            names |= {word + digit for digit in digs}
+            names |= {word + other for other in prem if word != other}
+            names |= {m for m in mutations(word) if len(m) >= 5}
+        scored = yield from _ranked((x for x in names if lo <= len(x) <= hi and valid(x)), cooperative, min_score, metrics)
+        yield from (w for sc, w in scored if sc >= min_score)
         return
     if spec == "mix":
-        gens = [candidates(s, min_score, rng, prefix, suffix, lengths) for s in ("brand", "dict", "combo", "5p", "6p")]
+        gens = [candidates(child, min_score, rng, prefix, suffix, lengths, cooperative=cooperative, metrics=metrics)
+                for child in ("brand", "dict", "combo", "5p", "6p")]
         while gens:
-            for gi in list(gens):
+            for child in list(gens):
                 try:
                     for _ in range(20):
-                        yield next(gi)
+                        name = next(child)
+                        yield name
+                        if name is None:  # An expensive child must not starve other presets.
+                            break
                 except StopIteration:
-                    gens.remove(gi)
+                    gens.remove(child)
         return
     if spec.startswith(("w", "ru")) and spec[-1].isdigit():
         n = int(re.sub(r"\D", "", spec))
-        src = EN if spec.startswith("w") else RU
-        words = sorted((w for w in src if len(w) == n), key=lambda w: -rate(w).score)
-        yield from (w for w in words if valid(w) and rate(w).score >= min_score)
+        source = EN if spec.startswith("w") else RU
+        scored = yield from _ranked((w for w in source if len(w) == n and valid(w)), cooperative, min_score, metrics)
+        yield from (w for sc, w in scored if sc >= min_score)
         return
     if spec == "combo":
         base = [w for w in list(EN)[:3000] if 3 <= len(w) <= 6]
-        names = {w + s for w in base for s in SUFFIXES} | {p + w for w in base for p in PREFIXES}
-        names = sorted((x for x in names if 5 <= len(x) <= 10 and valid(x)), key=lambda w: -rate(w).score)
-        yield from (w for w in names if rate(w).score >= min_score)
+        names = set()
+        for index, word in enumerate(base):
+            names |= {word + tail for tail in SUFFIXES} | {head + word for head in PREFIXES}
+            if cooperative and index % 256 == 255:
+                yield None
+        scored = yield from _ranked((x for x in names if 5 <= len(x) <= 10 and valid(x)), cooperative, min_score, metrics)
+        yield from (w for sc, w in scored if sc >= min_score)
         return
 
     pats = PRESETS[spec][1] if spec in PRESETS else [spec]
-    if prefix or suffix:                              # вшиваем начало/конец прямо в шаблон
+    if prefix or suffix:
         pats = list({_fix(p, prefix.lower(), suffix.lower()) for p in pats})
-    if _space(pats) <= 300_000:                       # маленькое пространство — перебираем всё
-        allc = sorted({u for u in _enumerate(pats) if valid(u)}, key=lambda w: -rate(w).score)
-        yield from (w for w in allc if rate(w).score >= min_score)
+    if _space(pats) <= 300_000:
+        names = set()
+        for index, name in enumerate(_enumerate(pats)):
+            if valid(name):
+                names.add(name)
+            if cooperative and index % 512 == 511:
+                yield None
+        scored = yield from _ranked(names, cooperative, min_score, metrics)
+        yield from (w for sc, w in scored if sc >= min_score)
         return
-    if spec != "rep":                                 # большое — полный перебор кусками с сохранением прогресса
-        groups = [[SETS.get(ch, ch.lower()) for ch in p] for p in sorted(pats)]
-        yield from _full(groups, "pat|" + ",".join(sorted(pats)), min_score)
+    if spec != "rep":
+        groups = [[SETS.get(ch, ch.lower()) for ch in pat] for pat in sorted(pats)]
+        yield from _full(groups, "pat|" + ",".join(sorted(pats)), min_score, cooperative=cooperative, metrics=metrics)
         return
     seen = set()
     empty = 0
-    while True:                                       # rep — случайные батчи, лучшие первыми
-        if empty > 30:                                # 30 батчей подряд ничего не прошло — выходим, а не висим
+    while True:
+        if empty > 30:
             return
+        if cooperative:
+            yield None
         batch = set()
-        for _ in range(4000):
-            p = rng.choice(pats)
-            u = "".join(rng.choice(SETS[ch]) if ch in SETS else ch.lower() for ch in p)
-            if valid(u) and u not in seen:
-                if spec == "rep" and not re.search(r"(.)\1\1", u):
+        for index in range(4000):
+            if cooperative and index % 256 == 255:
+                yield None
+            pat = rng.choice(pats)
+            name = "".join(rng.choice(SETS[ch]) if ch in SETS else ch.lower() for ch in pat)
+            if valid(name) and name not in seen:
+                if not re.search(r"(.)\1\1", name):
                     continue
-                batch.add(u)
+                batch.add(name)
         seen |= batch
-        scored = sorted(batch, key=lambda w: -rate(w).score)[:400]
+        scored = yield from _ranked(batch, cooperative, min_score, metrics)
         got = False
-        for w in scored:
-            if rate(w).score >= min_score:
+        for sc, name in scored[:400]:
+            if sc >= min_score:
                 got = True
-                yield w
+                yield name
         empty = 0 if got else empty + 1
