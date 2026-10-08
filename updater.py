@@ -32,6 +32,17 @@ def version_tuple(value):
         raise UpdateError('Неверный номер версии')
     return tuple(map(int, value.lstrip('v').split('.')))
 
+LEGACY_VERSIONS = {'8.3.0', '8.4.0', '8.4.1', '8.4.2'}
+
+def is_newer_release(target, installed):
+    target, installed = target.lstrip('v'), installed.lstrip('v')
+    target_tuple, installed_tuple = version_tuple(target), version_tuple(installed)
+    if installed in LEGACY_VERSIONS and target_tuple[0] == 1:
+        return True  # Public numbering restarted at 1.0.0.
+    if installed not in LEGACY_VERSIONS and target in LEGACY_VERSIONS:
+        return False  # Never return from the new series to a legacy build.
+    return target_tuple > installed_tuple
+
 def current_version(root=ROOT):
     try:
         return (Path(root) / 'VERSION').read_text(encoding='utf-8').strip()
@@ -150,7 +161,7 @@ def install_entries(entries, root=ROOT):
 
 def apply_release(release, root=ROOT):
     version = release['tag_name'].lstrip('v')
-    if version_tuple(version) <= version_tuple(current_version(root)):
+    if not is_newer_release(version, current_version(root)):
         raise UpdateError('Обновление не новее установленной версии')
     assets = {a['name']: a for a in release.get('assets', [])}
     name = f'username_hunter-{version}.zip'
@@ -179,7 +190,7 @@ def main(argv=None):
     try:
         release = latest_release()
         target = release['tag_name']
-        if version_tuple(target) <= version_tuple(current_version()):
+        if not is_newer_release(target, current_version()):
             print('Установлена актуальная версия.'); return 0
         print(f'Доступна версия {target}: https://github.com/{REPOSITORY}/releases/latest')
         if args.check: return 0

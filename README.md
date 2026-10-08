@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/ggrrrt5543/username-hunter/actions/workflows/ci.yml"><img src="https://github.com/ggrrrt5543/username-hunter/actions/workflows/ci.yml/badge.svg" alt="CI & Release"></a>
-  <a href="https://github.com/ggrrrt5543/username-hunter/releases/latest"><img src="https://img.shields.io/github/v/release/ggrrrt5543/username-hunter?style=flat-square&amp;color=2783DE" alt="Latest release"></a>
+  <a href="https://github.com/ggrrrt5543/username-hunter/releases/latest"><img src="https://img.shields.io/github/v/release/ggrrrt5543/username-hunter?sort=date&amp;style=flat-square&amp;color=2783DE" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/Python-3.10%2B-2783DE?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/UI-Rich_Terminal-334155?style=flat-square" alt="Rich terminal UI">
 </p>
@@ -124,6 +124,12 @@ python updater.py                           # обновить с подтвер
 `S+ ≥ 95` · `S ≥ 85` · `A ≥ 75` · `B ≥ 65` · `C ≥ 50` · `D ≥ 35` · `F < 35`
 
 Скор и уровень — эвристика, не объективная рыночная стоимость.
+
+## 🏷 Версии
+
+Публичная серия начинается с **1.0.0**. Следующие исправления — **1.0.1**, **1.0.2**; новые совместимые возможности — **1.1.0**. Старые 8.x остаются только в истории.
+
+**Переход с 8.4.x:** сделай резервную копию папки. Из нового ZIP скопируй в старую папку только `run.bat`, `update.bat` и `updater.py`, затем запусти `update.bat` и подтверди обновление. Не заменяй и не удаляй `.env` и личные файлы в `data/`. Старый обновлятор не понимает сброс нумерации, поэтому его нужно заменить один раз.
 
 ## 🔄 Обновления без потери данных
 

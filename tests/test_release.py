@@ -19,6 +19,14 @@ class ReleaseTests(unittest.TestCase):
         for invalid in ['8.4','banana','8.4.0/evil','8.4.0-rc1']:
             with self.assertRaises(updater.UpdateError): updater.version_tuple(invalid)
 
+    def test_new_public_version_series(self):
+        self.assertTrue(updater.is_newer_release('1.0.0', '8.4.2'))
+        self.assertTrue(updater.is_newer_release('v1.0.1', '8.4.0'))
+        self.assertTrue(updater.is_newer_release('1.0.1', '1.0.0'))
+        self.assertFalse(updater.is_newer_release('1.0.0', '1.0.1'))
+        self.assertFalse(updater.is_newer_release('8.4.2', '1.0.0'))
+        self.assertFalse(updater.is_newer_release('1.0.0', '1.0.0'))
+
     def test_private_files_excluded(self):
         for path in ['.env','data/hunter.db','data/settings.json','data/sessions/main.session',
                      'data/ready.txt','data/progress.json','data/market_cache.json','data/hunter.log',
