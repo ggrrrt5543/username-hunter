@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="title desc">
+<title id="title">Username Hunter — Find the name. Know the value.</title><desc id="desc">Telegram username discovery, scoring, Fragment insights and watchlists.</desc>
+<rect width="1200" height="320" rx="16" fill="#111827"/>
+<rect x="48" y="48" width="48" height="48" rx="10" fill="#2783DE"/>
+<text x="72" y="81" text-anchor="middle" font-family="Arial,sans-serif" font-size="31" font-weight="700" fill="#fff">@</text>
+<text x="116" y="78" font-family="Arial,sans-serif" font-size="16" letter-spacing="3" fill="#A8BDDA">GITHUB EDITION / 8.4</text>
+<text x="48" y="166" font-family="Arial,sans-serif" font-size="68" font-weight="700" letter-spacing="-2" fill="#FFFFFF">Username Hunter</text>
+<text x="51" y="208" font-family="Arial,sans-serif" font-size="24" fill="#B9C6D9">Find the name. Know the value.</text>
+<line x1="48" y1="245" x2="1152" y2="245" stroke="#334155"/>
+<text x="48" y="280" font-family="Arial,sans-serif" font-size="16" letter-spacing="1" fill="#91BDF1">DISCOVER</text>
+<text x="217" y="280" font-family="Arial,sans-serif" font-size="16" fill="#B9C6D9">/</text>
+<text x="256" y="280" font-family="Arial,sans-serif" font-size="16" letter-spacing="1" fill="#91BDF1">SCORE</text>
+<text x="389" y="280" font-family="Arial,sans-serif" font-size="16" fill="#B9C6D9">/</text>
+<text x="428" y="280" font-family="Arial,sans-serif" font-size="16" letter-spacing="1" fill="#91BDF1">WATCH</text>
+<text x="569" y="280" font-family="Arial,sans-serif" font-size="16" fill="#B9C6D9">/</text>
+<text x="608" y="280" font-family="Arial,sans-serif" font-size="16" letter-spacing="1" fill="#91BDF1">UPDATE</text>
+<text x="1152" y="280" text-anchor="end" font-family="Arial,sans-serif" font-size="16" fill="#B9C6D9">Telegram + Fragment</text>
+</svg>

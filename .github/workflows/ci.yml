@@ -1,0 +1,63 @@
+name: CI & Release
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hunter-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.10', '3.13']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - run: python -m compileall -q -x "[\\/]\.venv[\\/]" .
+      - run: python cli.py --version
+      - run: python cli.py rate hello goldfox ton777
+      - run: python scripts/build_release.py
+  release:
+    name: Build & publish ZIP
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python scripts/build_release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: username-hunter-distribution
+          path: dist/*
+      - name: Publish a new version only once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(cat VERSION | tr -d '\r\n')
+          TAG="v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists. Bump VERSION to publish a new release."
+            exit 0
+          fi
+          gh release create "$TAG" "dist/username_hunter-$VERSION.zip" dist/username_hunter.zip dist/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --title "Username Hunter $VERSION" --latest \
+            --notes-file docs/release-notes.md

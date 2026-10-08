@@ -1,0 +1,31 @@
+# Credentials: never commit the real .env
+.env
+.env.*
+!.env.example
+*.session
+*.session-journal
+*.session-wal
+*.session-shm
+checker.session*
+sessions/
+# Keep only bundled dictionaries inside data
+data/*
+!data/words_en.txt
+!data/words_ru.txt
+# Local environment and build output
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+*.log
+*.db
+*.db-*
+market_cache.json
+settings.json
+progress.json
+ready.txt
+.hunter-update-*

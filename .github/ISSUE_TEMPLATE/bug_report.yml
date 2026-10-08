@@ -1,0 +1,25 @@
+name: Ошибка
+description: Сообщить о проблеме без личных данных
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "Не публикуй .env, API_HASH, номер телефона, коды входа, логи с личными данными и файлы .session."
+  - type: input
+    id: version
+    attributes:
+      label: Версия / ОС / Python
+      placeholder: "8.4.0 / Windows 11 / Python 3.13"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения и ожидаемый результат
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Текст ошибки (убери личные данные)
+      render: text
