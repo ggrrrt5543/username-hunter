@@ -22,7 +22,7 @@ MAX_DOWNLOAD = 25 * 1024 * 1024
 RUNTIME_FILES = {'cli.py','checker.py','db.py','fragment.py','generator.py','limiter.py',
                  'market.py','scorer.py','settings.py','sources.py','updater.py','doctor.py',
                  'bootstrap.py','requirements.txt','run.bat','run.sh','update.bat','update.sh',
-                 '.env.example','.gitignore','.gitattributes','VERSION','README.md','CHANGELOG.md','SECURITY.md','CONTRIBUTING.md'}
+                 '.env.example','.gitignore','VERSION','README.md','CHANGELOG.md','SECURITY.md','CONTRIBUTING.md'}
 
 class UpdateError(Exception):
     pass

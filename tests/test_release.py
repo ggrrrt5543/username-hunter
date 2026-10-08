@@ -34,6 +34,7 @@ class ReleaseTests(unittest.TestCase):
             entries=updater.validate_archive(artifact.read_bytes(),updater.current_version())
             self.assertIn('cli.py',entries)
             self.assertNotIn('.env',entries)
+            self.assertNotIn('.gitattributes',entries)  # Git-only file; older updater rejects it
             self.assertNotIn('data/settings.json',entries)
 
     def test_zip_windows_launchers_are_ascii_crlf(self):
