@@ -40,7 +40,7 @@ SOURCE_PREFIXES = ("tg:", "url:", "file:")
 EXTERNAL = {}        # spec -> список, собранный парсером (sources.py)
 ALL_CHAIN = ["dict", "niche", "combo", "pair", "b5", "b6", "b7", "5p", "6p", "7p", "5d", "6d", "5", "6"]
 
-# ───────── прогресс полного перебора: продолжает с места остановки ─────────
+# прогресс полного перебора: продолжает с места остановки
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 PROG_PATH = os.path.join(DATA, "progress.json")
 PROGRESS = {}        # key -> [пройдено, всего]
@@ -157,7 +157,7 @@ def _fix(p, prefix, suffix):
     return prefix + p[len(prefix):len(p) - len(suffix)] + suffix
 
 
-# ───────── Марковская модель: генерирует несуществующие, но «словоподобные» юзы ─────────
+# Марковская модель: генерирует несуществующие, но «словоподобные» юзы
 _MODEL = None
 
 

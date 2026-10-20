@@ -54,7 +54,7 @@ BANNER = r"""[bold cyan]
 BANNER += f"\n[dim]v{VERSION} · GitHub Edition · меню u — обновление[/dim]"
 
 
-# ───────────────────────── helpers ─────────────────────────
+# helpers
 class App:
     def __init__(self):
         global app_ref
@@ -106,7 +106,7 @@ SIMILAR = {
 }
 
 
-# ───────────────────────── TELEGRAM API ─────────────────────────
+# TELEGRAM API
 ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 
 
@@ -176,7 +176,7 @@ def save_ready(names):
     return p
 
 
-# ───────────────────────── HUNT ─────────────────────────
+# HUNT
 async def hunt(app, spec=None, n=None, min_score=None, recheck=False, verify=False, telethon=None):
     s_ = dict(SET)
     if s_["max_score"] < s_["min_score"]:
@@ -601,7 +601,7 @@ async def verify_telethon(app, names):
         save_ready(ready)
 
 
-# ───────────────────────── CHECK LIST ─────────────────────────
+# CHECK LIST
 async def check_list(app, names):
     mk = await app.market()
     names = [x.lower().lstrip("@") for x in names if x.strip()]
@@ -623,7 +623,7 @@ async def check_list(app, names):
     con.print(t)
 
 
-# ───────────────────────── INFO ─────────────────────────
+# INFO
 async def info(app, name):
     mk = await app.market()
     name = name.lower().lstrip("@")
@@ -668,7 +668,7 @@ async def info(app, name):
     con.print(f"[dim]{inf.get('url', '') if inf else ''}[/]")
 
 
-# ───────────────────────── MARKET ─────────────────────────
+# MARKET
 async def market_screen(app, refresh=False):
     if refresh:
         with con.status("Обновляю рынок…"):
@@ -697,7 +697,7 @@ async def market_screen(app, refresh=False):
         con.print(tt if d else f"[dim]{title}: сейчас нет[/]")
 
 
-# ───────────────────────── DB ─────────────────────────
+# DB
 def db_screen(app, export=None, min_score=0, status="free,maybe"):
     c = app.db.counts()
     con.print("[dim]В базе: " + " · ".join(f"{LABEL.get(k, k)}: {v}" for k, v in c.items()) + "[/]")
@@ -712,7 +712,7 @@ def db_screen(app, export=None, min_score=0, status="free,maybe"):
         con.print(f"[green]Экспортировано {app.db.export(export, status)} → {export}[/]")
 
 
-# ───────────────────────── SETTINGS ─────────────────────────
+# SETTINGS
 def fmt_val(kind, v):
     if kind == "bool":
         return "[green]вкл[/]" if v else "[red]выкл[/]"
@@ -804,7 +804,7 @@ def settings_summary():
     return " · ".join(bits)
 
 
-# ───────────────────────── WATCH (уходящие юзы) ─────────────────────────
+# WATCH (уходящие юзы)
 def watch_add_names(app, names):
     added = 0
     for nm in names:
@@ -951,7 +951,7 @@ async def watch_menu(app):
             app.db.watch_remove([r[0] for r in app.db.watch_list(10 ** 6)])
 
 
-# ───────────────────────── ACCOUNTS ─────────────────────────
+# ACCOUNTS
 async def accounts_screen(app):
     if not (os.getenv("API_ID") and os.getenv("API_HASH")) and not setup_api():
         return
@@ -990,7 +990,7 @@ async def accounts_screen(app):
                 con.print("[red]Нет такого номера[/]")
 
 
-# ───────────────────────── MENU ─────────────────────────
+# MENU
 def presets_table():
     t = Table(box=box.SIMPLE, show_header=False)
     t.add_column(style="bold cyan"); t.add_column(style="dim")
