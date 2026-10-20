@@ -178,4 +178,4 @@ python scripts/build_release.py
 
 ---
 
-Maintained by [ggrrrt5543](https://github.com/ggrrrt5543). Инструкции, ограничения и сведения о сторонних компонентах приведены выше.
+Автор и поддержка — [ggrrrt5543](https://github.com/ggrrrt5543). Инструкции, ограничения и сведения о сторонних компонентах приведены выше.
