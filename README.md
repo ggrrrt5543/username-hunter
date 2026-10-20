@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="assets/banner.svg" alt="Username Hunter — Find the name. Know the value." width="100%">
-</p>
+<img src="assets/readme-cover.svg" alt="Username Hunter — поиск и проверка Telegram-юзернеймов" width="100%">
 
 <p align="center">
   <a href="https://github.com/ggrrrt5543/username-hunter/actions/workflows/ci.yml"><img src="https://github.com/ggrrrt5543/username-hunter/actions/workflows/ci.yml/badge.svg" alt="CI & Release"></a>
@@ -176,3 +174,8 @@ python scripts/build_release.py
 ---
 
 <p align="center"><b>Username Hunter</b> · Discover / Score / Watch / Update<br>Без магических обещаний. С понятными статусами и твоими данными под контролем.</p>
+
+
+---
+
+Maintained by [ggrrrt5543](https://github.com/ggrrrt5543). Инструкции, ограничения и сведения о сторонних компонентах приведены выше.
