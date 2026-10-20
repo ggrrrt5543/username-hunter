@@ -1,4 +1,4 @@
-name: CI & Release
+name: Проверки и релиз
 on:
   push:
     branches: [main]
@@ -32,7 +32,7 @@ jobs:
       - run: python cli.py rate hello goldfox ton777
       - run: python scripts/build_release.py
   release:
-    name: Build & publish ZIP
+    name: Сборка и публикация ZIP
     needs: test
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -48,14 +48,14 @@ jobs:
         with:
           name: username-hunter-distribution
           path: dist/*
-      - name: Publish a new version only once
+      - name: Публикация только новой версии
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(cat VERSION | tr -d '\r\n')
           TAG="v$VERSION"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists. Bump VERSION to publish a new release."
+            echo "Релиз $TAG уже существует. Измени VERSION для публикации новой версии."
             exit 0
           fi
           gh release create "$TAG" "dist/username_hunter-$VERSION.zip" dist/username_hunter.zip dist/SHA256SUMS.txt \

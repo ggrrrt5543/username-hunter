@@ -1,6 +1,6 @@
 name: Ошибка
 description: Сообщить о проблеме без личных данных
-title: "[Bug] "
+title: "[Ошибка] "
 body:
   - type: markdown
     attributes:
